@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build-p1-tests",
+      "type": "shell",
+      "command": "make -j$(nproc) lru_k_replacer_test extendible_hash_table_test buffer_pool_manager_instance_test",
+      "options": { "cwd": "${workspaceFolder}/build" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "run-p1",
+      "type": "shell",
+      "command": "bash /root/tools/run-p1.sh --color",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

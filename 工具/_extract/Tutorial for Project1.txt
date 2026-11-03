@@ -1,0 +1,346 @@
+前⾔
+具体的项⽬实现请参考
+这份Tutorial⽬的是提供⼀个更加友好的⼊⻔解答，给出其中⼀些算法实现解析和实现的注意事项，帮助⼤家在实
+现和Debug过程中节约时间。这个项⽬的课程对应Lecture03-Lecture07，请同学们实现之前先阅读这⼀部分的讲
+义。
+参考资料
+1. 课程官⽹：https://15445.courses.cs.cmu.edu/fall2022/
+2. Bustub Github Repo:https://github.com/cmu-db/bustub
+3. 课程视频：CMU Intro to Database Systems (15-445/645 Fall 2022)
+4. ⾃动测评⽹站 GradeScope：Your Courses | Gradescope，课程代码是PXWVR5，学校要选择CMU.
+5. Discord 交流平台：https://discord.gg/YF7dMCg
+6. 课程中⽂讲解：CMU-15445 数据库内核
+7. 去年课程任务代码参考（请注意，任务相似但不同，代码⽆法直接迁移！）
+概述
+
+Bustub的组织结构如下：
+我们这⾥需要修改的是内存管理 (Project 1 Buffer Pool Manager)、存储引擎 (Project 2 Index)两个部分。
+项⽬1 与 Bustub 的存储管理器相关联，其重点在于实现存储管理器中的缓冲池。该项⽬分为三个主要部分：
+1. Extendible Hash Table（可扩展哈希表）
+src/include/container/hash/extendible_hash_table.h
+src/container/hash/extendible_hash_table.cpp
+2. LRU-K Replacer（LRU-K⻚替换算法）
+src/include/buffer/lru_k_replacer.h
+src/buffer/lru_k_replacer.cpp
+3. Buffer Pool Manager 实例
+src/include/buffer/buffer_pool_manager_instance.h
+src/buffer/buffer_pool_manager_instance.cpp
+其中，Extendible Hash Table 和 LRU-K Replacer 是 Buffer Pool Manager 的内部组件，⽽ Buffer
+Pool Manager 则为系统提供了获取⻚⾯的接⼝。系统通过提供⼀个 page_id 即可向 Buffer Pool
+Manager 请求对应⻚⾯，⽽⽆需关⼼⻚⾯具体存储位置。系统对获取⻚⾯的过程不感兴趣，⽆论是从磁盘还
+是内存读取，或者⻚⾯在磁盘和内存之间可能发⽣的移动。所有这些内部操作均由 Buffer Pool Manager
+完成，对系统⽽⾔这些过程不可⻅。
+
+Disk Manager 已经为我们提供，是实际在 disk 上读写数据的接⼝。整体流程如下
+Extendible Hash Table
+任务描述
+在这个部分，我们需要实现⼀个可扩展哈希表，不允许使⽤内建的哈希表，⽐如 unordered_map。这个哈希表在
+Buffer Pool Manager 中的主要作⽤是存储缓冲池中⻚⾯ ID 和帧 ID 的映射关系。该哈希表使⽤⽆序桶来存储唯⼀
+的键/值对。你的哈希表必须⽀持在不指定表的最⼤⼤⼩的情况下插⼊/删除键/值条⽬的能⼒。你的表需要根据需要
+逐渐增⻓，但不需要缩⼩。也就是说，你不需要实现缩⼩或压缩哈希表的⽀持。你还需要⽀持检查键是否存在于哈
+希表中，并返回其相应的值。
+你必须在项⽬源代码的指定⽂件中实现哈希表。你只被允许修改哈希表头⽂件
+（src/include/container/hash/extendible_hash_table.h）及其相应的实现⽂件
+（src/container/hash/extendible_hash_table.cpp）。你不需要修改任何其他⽂件。在你的实现中，你不能在内
+部使⽤另⼀个内置的哈希表。你必须在 ExtendibleHashTable 类中实现以下函数：
+Find(K, V)：对于给定的键 K，检查它是否存在于哈希表中。如果存在，则将指向其相应值的指针存储在 V
+中并返回 true。如果键不存在，则返回 false。
+
+Insert(K, V)：将键/值对插⼊哈希表。如果键 K 已经存在，⽤新值 V 覆盖其值并返回 true。如果键/值对
+⽆法插⼊桶中（因为桶已满且键未更新现有对），在重试之前执⾏以下步骤：
+如果桶的局部深度等于全局深度，请增加全局深度并将⽬录的⼤⼩加倍。
+增加桶的局部深度。
+拆分桶并重新分配⽬录指针和桶中的键值对。有些实现在插⼊后，如果桶⽴即变满，会拆分桶。但是在
+这个项⽬中，请检测桶是否溢出，并在插⼊之前执⾏拆分。
+Remove(K)：对于给定的键 K，从哈希表中删除其相应的键/值对并返回 true。如果键 K 在哈希表中不存在，
+则返回 false。
+GetGlobalDepth()：返回整个哈希表的当前全局深度。
+GetLocalDepth(dir_index)：返回给定⽬录索引指向的桶的当前局部深度。
+GetNumBuckets()：返回哈希表中分配的桶的总数。
+你可以利⽤提供的 IndexOf(K) 私有函数来计算给定键哈希到的⽬录索引。此外，我们提供了⼀个表示可扩
+展哈希表中桶的嵌套类 Bucket。⾸先按照代码⽂档的说明完成 Bucket 类的 TODO 部分，可以使你更容易
+实现 ExtendibleHashTable 类的 API。但是你可以随意编写⾃⼰的内部类/辅助函数。
+你需要确保哈希表中的所有操作都是线程安全的，使⽤ std::mutex 来保护数据结构。保护数据结构的⽅式由你
+决定。
+Extendible Hash Table Design
+Extendible Hash Table 由⼀个⽬录（directory）和多个桶（bucket）组成。
+⽬录（directory）: 存放指向桶的指针，是⼀个数组。⽤于寻找键对应值所在的桶。
+桶（bucket）: 存放值，是⼀个链表。⼀个桶最多可以存放指定数量的值（⽤于存放每个 <K, V>，
+即 <frame_id, page_id>）。
+在介绍 Extendible Hash 之前，⾸先需要了解⼀下哈希表和链式哈希。
+Hash Table
+哈希表是⼀种抽象数据类型，通过哈希函数将数据从键（key）映射到值（value）。它提供平均 O(1) 的时间复杂
+度，但最坏情况下可能达到 O(n)。需要注意的是，实际实现中可能存在较⼤的常数，这是需要考虑的现实因素。
+哈希表的实现包括两个关键部分：
+1. 哈希函数（Hash Function）
+定义了如何将⼤的键空间映射到较⼩的域。
+需要在执⾏效率和冲突率之间进⾏权衡。⼀个极端是，存在⼀个哈希函数，总是返回⼀个常数（⾮常迅
+速，但会导致冲突）。另⼀个极端是存在“完美”的哈希函数，其中没有冲突，但计算起来⾮常耗时。
+2. 哈希⽅案（Hashing Scheme）
+解决哈希后的键冲突的⽅式。
+需要在分配⼤哈希表以减⼩碰撞率，以及提供其他机制处理碰撞之间进⾏权衡。
+Chained Hashing
+在链式哈希中，哈希表的数组成员是桶的链表。因此，当发⽣冲突时，只需将元素添加到相应桶的末尾。如果桶已
+满，则可以创建⼀个新的桶。Chained Hash 简单地将新的 value 追加到其 key 对应 bucket 链表的最后，也就是
+说 Chained Hash 的 bucket 没有容量上限。
+
+Extendible Hashing
+Extendible Hashing 是链式哈希的⼀种变体，其主要区别在于将桶拆分，⽽不是让链表永远增⻓。拆分过程只涉及
+移动被拆分桶中的元素，不会影响其他元素。这种⽅法允许哈希表的多个槽（slots）指向同⼀个桶。
+在下图中，哈希数组中存放了对应桶的指针。
+
+对于哈希数组，存在⼀个 全局 bit 位，表示要检查前多少位作为哈希值。在上图中，全局 bit 为 2，表示只需查看
+前两位即可确定哈希值，也可推断哈希表中槽总数为$2^2=4$个。同时，每个桶有⼀个 本地 bit 位，表示找到本地
+桶需要多少位。查找过程如下图，以查找元素 A 为例，全局 bit 为 2，A 的前两位为 01，推断 A 在第 2 个槽内，然
+后在相应的桶中查找 A。
+插⼊操作如下图所示，例如要插⼊元素 B，B 的前两位为 10，知道它在第 3 个槽内，于是将它放⼊第 3 个槽对应
+的桶中。
+
+如果插⼊时发现桶已满，如下图所示，在插⼊元素 C 时，前两位为 10，插⼊第 3 个槽对应的桶，但发现已满，因
+此对该桶进⾏拆分。拆分后，本地 bit 加 1，变为 3，全局 bit 也变为 3。
+拆分后再将元素 C 插⼊。
+
+随后，按照 local bit 从⼩到⼤的顺序，依次遍历桶，将哈希数据连接到桶中。
+在拆分过程中，Extendible Hash Table 通过只修改哈希数组并移动桶中的元素来实现扩展，这种⽅法利⽤了前缀
+的性质，使得桶的拆分变得简单⽽有效。拆分操作需要进⾏判断当前 bucket 的 local depth 是否等于 global
+depth：
+若相等，即仅有⼀个指针指向 bucket，需要对 directory 扩容。
+若不相等，即有多个指针指向 bucket，则⽆需扩容，只需重新分配原来指向此 bucket 的指针。
+
+拆分操作包含以下步骤：
+1. 全局深度（global depth）加⼀
+2. ⽬录（directory）容量翻倍
+3. 创建⼀个新的 bucket
+4. 重新安排指针：新索引应指向低位对应索引的 bucket。这些指向同⼀个bucket的指针称为兄弟指针。重新安
+排指针实际上是重新安排指向需要拆分的bucket的兄弟指针。兄弟指针的数量不⼀定只有两个，可以有 2^n
+个。
+5. 重新分配 KV 对：使⽤全局深度重新计算⼀遍 K 对应的 index 并插⼊对应的 bucket。
+需要注意的是，每次插⼊操作前都要判断是否需要进⾏拆分。拆分后并不代表可以直接插⼊，因为可能在重新分配
+KV 对时，所有的 KV 对⼜被塞到了同⼀个 bucket ⾥，⽽需要插⼊的 KV 对也被带到了这个 bucket。因此可能需要
+多次拆分才能成功插⼊。
+总体⽽⾔，Extendible Hash Table 与 Chained Hash Table 最⼤的区别在于，Extendible Hash 中不同的指针可以
+指向同⼀个桶，⽽ Chained Hash 中每个指针对应⼀个桶。在 Chained Hash 中，发⽣冲突时会简单地将新的值追
+加到其键对应桶链表的最后，⽽桶没有容量上限。⽽在 Extendible Hash 中，如果桶达到容量上限，则对桶进⾏⼀
+次拆分操作。
+LRU-K Replacer
+任务描述
+这个组件负责在缓冲池中跟踪⻚⾯的使⽤。你将在 src/include/buffer/lru_k_replacer.h 中实现⼀个名为
+LRUKReplacer 的新类，以及其相应的实现⽂件 src/buffer/lru_k_replacer.cpp。请注意，LRUKReplacer
+是⼀个独⽴的类，与其他 Replacer 类⽆关。你只需实现 LRU-K 替换策略，即使有对应的⽂件，也⽆需实现 LRU
+或时钟替换策略。
+LRU-K 算法淘汰的帧是与替换器中所有其他可替代帧的最⼤后退 k-距离的帧。后退 k-距离计算为当前时间戳与第 k
+次先前访问的时间戳之间的差异。具有⼩于 k 的历史访问次数的帧将其后退 k-距离设为 +inf。当多个帧具有 +inf
+后退 k-距离时，替换器将淘汰具有最早时间戳的帧。
+LRUKReplacer 的最⼤⼤⼩与缓冲池的⼤⼩相同，因为它包含了 BufferPoolManager 中所有帧的占位符。然
+⽽，在任何给定的时刻，并⾮所有替代器中的帧都被视为可淘汰的。LRUKReplacer 的⼤⼩由可淘汰帧的数量表
+示。LRUKReplacer 被初始化为没有帧。然后，只有当⼀个帧被标记为可淘汰时，替代器的⼤⼩才会增加。
+你需要实现LRU-K 策略。你需要实现以下⽅法：
+Evict(frame_id_t*)：淘汰具有替换器中所有其他可替代帧的最⼤后退 k-距离的帧。将帧 ID 存储在输出参
+数中并返回 True。如果没有可淘汰的帧，则返回 False。
+RecordAccess(frame_id_t)：记录给定帧 ID 在当前时间戳被访问。在 BufferPoolManager 中将⻚⾯固
+定后应调⽤此⽅法。
+Remove(frame_id_t)：清除与帧关联的所有访问历史。仅在 BufferPoolManager 中⻚⾯删除后应调⽤此⽅
+法。
+SetEvictable(frame_id_t, bool set_evictable)：控制帧是否可淘汰，并调整 LRUKReplacer 的⼤
+⼩。当⻚⾯的引⽤计数达到 0 时，其相应的帧被标记为可淘汰，替代器的⼤⼩增加。
+Size()：返回当前在 LRUKReplacer 中可淘汰的帧数。
+在实现这些⽅法时，请确保它们是线程安全的，并使⽤ std::mutex 来保护数据结构。
+
+LRU-K Replacer Design
+LRU-K 替换算法旨在管理缓冲池中⻚⾯引⽤的记录，并在缓冲池满时确定需要驱逐的⻚⾯。虽然 LRU（最近最少使
+⽤）是⼀个熟悉的概念，但 LRU-K 引⼊了⼀些微⼩的变化。
+在 LRU-K 中，我们引⼊了⼀个参数 K，⽤于表示考虑的引⽤次数范围。每个⻚⾯都会保持⼀个⼤⼩为 K 的引⽤时
+间戳列表，记录过去 K 次引⽤的时间。当缓冲池达到容量限制时，需要选择⻚⾯进⾏替换。具体步骤如下：
+1. 引⽤次数⼤于等于 K 的⻚⾯： 如果缓冲池中的所有⻚⾯都被引⽤了 K 次或更多次，那么选择最早被引⽤的⻚
+⾯进⾏替换，即⽐较第 K 次引⽤的时间戳。
+2. 引⽤次数⼩于 K 的⻚⾯： 如果存在被引⽤次数少于 K 次的⻚⾯，那么只考虑这些⻚⾯。在这个⼦集中，采⽤
+传统的 LRU ⽅法，⽐较它们第⼀次被引⽤的时间戳，并替换最早被引⽤的⻚⾯。
+这⼀变化使得 LRU-K 在处理多次引⽤的⻚⾯时更为灵活，能够更好地适应不同的访问模式。通过引⼊ K 这个参
+数，算法可以根据具体需求进⾏调整，从⽽更好地满⾜应⽤程序的需求。
+在LRU-K Replacer中，⻚⾯具有⼀个evictable属性。当⻚⾯的evictable为false时，上述算法将跳过该⻚
+⾯。这主要是为了使上层调⽤者能够锁定⼀个⻚⾯，执⾏⼀些读写操作，从⽽确保⻚⾯保留在内存中。
+在实现时需要注意，传统的LRU使⽤哈希表加双向链表实现，可以保证各操作均为O(1)的复杂度。但是由于LRU-K
+需要保存K次引⽤的记录，因此不能再使⽤双向链表。
+LRU-K Replacer Implementation
+如何LRU-K算法运⾏
+访问记录：
+1. 每当⻚⾯被访问时，该访问被记录下来。
+2. 如果⻚⾯访问次数少于K次，它被放在历史列表中。
+3. ⼀旦⻚⾯被访问K次，它被移动到缓存列表。
+
+列表维护：
+1. 历史列表中的⻚⾯在达到K次访问之前不会被考虑⽤于替换。
+2. 缓存列表中的⻚⾯是根据最近⼀次访问时间排序的，最近最少被访问的⻚⾯排在列表末尾。
+⻚⾯替换：
+1. 当需要替换⻚⾯时，LRU-K算法⾸先查看缓存列表，从列表末尾开始（即最少最近使⽤的⻚⾯）。
+2. 如果缓存列表中没有可替换的⻚⾯，算法会检查历史列表。
+维护历史列表和缓存列表
+历史列表：
+1. 记录访问次数⼩于K的⻚⾯。
+2. 当⻚⾯访问次数增加时，从历史列表移除并加⼊缓存列表。
+3. ⽤于追踪那些不太频繁但仍然重要的⻚⾯。
+缓存列表：
+1. 记录访问次数等于或超过K次的⻚⾯。
+2. 列表根据最近⼀次访问时间维护。
+3. ⽤于追踪最活跃的⻚⾯。
+为什么存在两个列表
+1. 提⾼精度：
+通过区分不同访问频率的⻚⾯，LRU-K能更精确地预测哪些⻚⾯可能不再被需要。这⽐传统LRU的“⼀⼑切”⽅
+法要灵活得多。
+2. 减少错误替换：
+避免了将经常访问但最近偶尔未被访问的⻚⾯错误地替换出去。
+3. 性能优化：
+对于不同类型的⼯作负载，这种⽅法可以更好地适应，特别是在数据库和⽂件系统的缓存管理中。
+4. 避免抖动：
+在传统的LRU中，即使是临时增加的访问频率也可能导致⻚⾯被保留在缓存中。LRU-K通过要求连续的K次访
+问来减少这种抖动。
+Buffer Pool Manager Instance
+任务描述
+接下来，您需要在系统中实现缓冲池管理器(BufferPoolManager)。BufferPoolManager负责从DiskManager获
+取数据库⻚⾯并将它们存储在内存中。BufferPoolManage还可以在有要求它这样做时，或者当它需要驱逐⼀个⻚
+以便为新⻚腾出空间时，将脏⻚写⼊磁盘。为了确保您的实现能够正确地与系统的其余部分⼀起⼯作，我们将为您
+提供⼀些已经填写好的功能。您也不需要实现实际读写数据到磁盘的代码(在我们的实现中称为DiskManager)。我
+
+们将为您提供这⼀功能。
+系统中的所有内存⻚⾯均由Page对象表示。BufferPoolManager不需要了解这些⻚⾯的内容。 但是，作为系统
+开发⼈员，重要的是要了解Page对象只是缓冲池中⽤于存储内存的容器，因此并不特定于唯⼀⻚⾯。 也就是说，
+每个Page对象都包含⼀块内存，DiskManager会将其⽤作复制从磁盘读取的物理⻚⾯内容的位
+置。 BufferPoolManager将在将其来回移动到磁盘时重⽤相同的Page对象来存储数据。 这意味着在系统的整个
+⽣命周期中，相同的Page对象可能包含不同的物理⻚⾯。Page对象的标识符（page_id）跟踪其包含的物理⻚
+⾯。 如果Page对象不包含物理⻚⾯，则必须将其page_id设置为INVALID_PAGE_ID。
+每个Page对象还维护⼀个计数器，以显示“固定”该⻚⾯的线程数。BufferPoolManager不允许释放固定的⻚⾯。
+每个Page对象还跟踪它的脏标记。您的⼯作是判断⻚⾯在解绑定之前是否已经被修改（修改则把脏标记置为1）。
+BufferPoolManager必须将脏⻚的内容写回磁盘，然后才能重⽤该对象。
+BufferPoolManager实现将使⽤在此分配的前⾯步骤中创建的LRUReplacer类。它将使⽤LRUReplacer来跟踪
+何时访问⻚对象，以便在必须释放⼀个帧以为从磁盘复制新的物理⻚腾出空间时，它可以决定取消哪个⻚对象
+你需要实现在(src/buffer/buffer_pool_manager.cpp):的以下函数
+FetchPageImpl(page_id)
+NewPageImpl(page_id)
+UnpinPageImpl(page_id, is_dirty)
+FlushPageImpl(page_id)
+DeletePageImpl(page_id)
+FlushAllPagesImpl()
+Buffer Pool
+Buffer pool是⼀种内存缓存，⽤于存储从磁盘读取的⻚⾯，本质上是从数据库内存中分配的⼀⼤块区域。
+组织形式
+Buffer pool的组织形式是⼀个固定⼤⼩的⻚⾯数组，其中的每个数组项称为⼀ 帧（frame）。当数据库管理系
+统（DBMS）需要⼀个⻚⾯时，该⻚⾯的副本就会放在⼀个帧中。因此，系统可以⾸先在buffer pool中查找是否
+有这个⻚⾯。如果没有找到，系统就会从磁盘中读取该⻚⾯。
+以下是⼀个示意图，其中frame1存放着page1，frame2存放着page3。脏⻚（dirty pages）被缓存，并且不
+会⽴即写回到磁盘中。这意味着对⻚⾯的修改⾸先发⽣在buffer pool中，⽽不是直接在磁盘上进⾏。这样可以
+提⾼性能，因为写⼊磁盘通常⽐写⼊内存慢得多。
+同时 DBMS 会维护⼀个 page table，负责记录每个 page 在内存中的位置，以及是否被写过（Dirty Flag），是否
+被引⽤或引⽤计数（Pin/Reference Counter）等元信息。
+Buffer Pool Metadata
+Buffer pool必须维护⼀些元数据，以便能⾼效、正确地运⾏。
+Page Table
+Page table是⼀个在内存中的哈希表，⽤于记录当前在buffer pool中的⻚⾯信息。它执⾏以下映射：将page
+id映射到frame location（因为在buffer pool中的⻚⾯不是按顺序存储的）。
+与操作系统中的⻚表不同，Page table主要⽤于管理数据库⻚⾯的位置信息。它允许系统快速查找给定page id
+的⻚⾯在buffer pool中的位置。
+
+Page Directory
+Page directory将page id映射到数据库⽂件位置。与Page table不同，Page directory的更改需要写回磁
+盘。它提供了⼀个从page id到实际存储位置的映射，确保在需要从磁盘读取⻚⾯时，系统知道在哪⾥查找。
+Other Metadata
+Dirty Flag
+Dirty flag是⼀个标志，⽤于指示⻚⾯是否已经被修改。如果⻚⾯被修改，dirty flag将被设置为true，表
+示该⻚⾯的内容在buffer pool中与磁盘上的内容不同。这允许系统延迟将修改的⻚⾯写回磁盘，提⾼性能。
+Pin/Reference Counter
+Pin/reference counter记录有多少线程正在访问特定⻚⾯（读或写）。如果counter⼤于0，表示该⻚⾯正在
+被活动线程使⽤，因此不应该被替换出内存。同时，它还可以⽤于实施锁，以防⽌多线程访问可能导致的问题。当
+counter为0时，表示没有线程在使⽤该⻚⾯，可以考虑替换出内存。
+Buffer Pool Manager Design
+在Buffer Pool Manager中有⼏个关键的成员：
+pages：缓冲池中缓存⻚⾯的指针数组
+disk_manager：⽤于读取和写⼊磁盘上指定⻚码的⻚⾯数据的⼯具
+page_table：刚才实现的可扩展哈希表，⽤于将⻚码映射到帧码，即⻚⾯在缓冲池中的位置
+replacer：刚才实现的LRU-K替换算法，⽤于确定需要驱逐的⻚⾯
+free_list：⽤于管理空闲帧的列表
+Buffer Pool Manager向上层调⽤者提供的两个最重要的功能是new page和fetch page。下⾯整理⼀下
+Buffer Pool Manager完成这两项⼯作的流程：
+New Page
+上层调⽤者希望新建⼀个⻚⾯时，调⽤ NewPgImp。如果当前缓冲池已满且所有⻚⾯都是不可驱逐的，则直接返
+回。否则，执⾏以下步骤：
+如果当前缓冲池中仍有空闲的帧，创建⼀个空的⻚⾯并将其放置在⼀个空闲帧中。
+如果当前缓冲池中没有空闲的帧，但有可驱逐的⻚⾯，利⽤LRU-K Replacer获取可驱逐的帧码，将帧中原
+⻚⾯驱逐出缓冲池，并将新的⻚⾯放置在此帧中。在驱逐时：
+如果当前帧为dirty（已发⽣写操作），将对应帧中的⻚⾯数据写⼊磁盘，并将dirty标志重置为
+false。清空帧数据，并从page_table中移除⻚⾯ID，在replacer中移除引⽤记录。
+如果当前帧不为dirty，直接清空帧数据，并从page_table中移除⻚⾯ID，在replacer中移除引⽤
+记录。在replacer中记录帧的引⽤记录，并将帧的evictable属性设为false，因为上层调⽤者可能
+需要对该⻚⾯进⾏读写操作。
+使⽤ AllocatePage 分配⼀个新的⻚⾯ID（从0递增）。将此⻚⾯ID和存放⻚⾯的帧码插⼊page_table。将
+⻚⾯的pin_count加1。
+
+Fetch Page
+上层调⽤者给定⼀个⻚⾯ID，Buffer Pool Manager返回对应的⻚⾯指针，调⽤ FetchPgImp。如果可以在缓冲
+池中找到对应⻚⾯，则直接返回。否则，需要将磁盘上的⻚⾯载⼊内存，即放⼊缓冲池。如果当前缓冲池已满且所
+有⻚⾯都是不可驱逐的，则直接返回空指针。否则，按照与New Page操作相同的⽅式处理：
+⾸先尝试在free list中找到⼀个空闲的帧来存放需要读取的⻚⾯。如果没有空闲帧，就驱逐⼀个⻚⾯来腾
+出帧。获取⼀个空闲帧后，通过disk_manager读取⻚⾯ID对应的⻚⾯数据，将其存放在帧中。
+在replacer中记录引⽤，将帧的evictable属性设为false，并将⻚⾯ID插⼊page_table。⻚⾯的
+pin_count加1。
+总体流程相对简单，如果缓冲池没有空位，也⽆法腾出空位，Buffer Pool Manager会直接返回，表示暂时⽆法
+处理请求。如果有空位，就会尝试使⽤空位，如果没有空位但可以驱逐⻚⾯，就会驱逐⼀个⻚⾯来腾出空位。这样
+可以在内存中缓存⼀个⻚⾯，⽅便上层调⽤者进⾏操作。同时，还需要同步更新⼀些信息，如page_table和
+replacer。在驱逐⻚⾯时，如果⻚⾯为dirty（已发⽣写操作），还需要将其数据写回磁盘。
+Pin & Unpin
+当上层调⽤者新建⼀个⻚⾯或者获取⼀个⻚⾯时，Buffer Pool Manager会⾃动将该⻚⾯的pin_count加1，表
+示此⻚⾯被引⽤。接下来，上层调⽤者对⻚⾯进⾏⼀系列读写操作，操作完之后，调⽤unpin，告知Buffer
+Pool Manager此⻚⾯的使⽤情况。Buffer Pool Manager内部会根据pin_count的情况来决定是否可以将⻚⾯
+从内存中移除或刷新到磁盘上。需要特别注意的是，Buffer Pool Manager不会直接修改⻚⾯的dirty标志，只
+有在unpin操作时，通过传⼊is_dirty参数来标识⻚⾯是否发⽣了写操作，从⽽更新dirty标志。如果⻚⾯的
+dirty标志已经为true，则不会被改变，表示其他调⽤者已经进⾏了写操作。只有在⻚⾯的dirty标志为false
+时，才能将其标记为is_dirty。
+备注
+Locks和Latches有什么区别
+Locks
+Locks不同于OS中的锁，数据库中的lock是⼀个higher-level的，概念上的，避免不同transactions对数据库
+的竞争。如对tuples、tables、databases的lock。Transactions会在它整个⽣命周期持有lock
+Latches
+Latches是⼀个low-level的保护原语，DBMS⽤于其内部数据结构中的关键部分，如hash table等。Latch只
+在操作执⾏的时候被持有。
+性能优化
+perf 是 linux 下的⼀款性能调优⼯具。
+Installation
+安装⽅式 (Ubuntu 22.04 LTS)：
+sudo apt-get install linux-tools-$(uname -r) linux-tools-generic -y
+
+Commands
+sudo perf record -g -a /path/to/your/application
+运⾏⼀个程序，并对其采样，⽣成相关数据 perf.data。-g 表明记录函数调⽤关系，-a 为路径名，还有⼀个可
+选参数 -e，表明需要监控的事件。
+perf 有⼀个监控事件列表，包含 cpu clock，cache miss，page fault 等各种事件。可以⽤查看。默认为 cpu
+clock。
+sudo perf list
+⽣成 perf.data 后，执⾏
+sudo perf report -g
+查看报告。在报告中可以看到各个函数的使⽤情况以及调⽤关系。
+测试
+make format
+make extendible_hash_table_test
+make lru_k_replacer_test
+make buffer_pool_manager_instance_test
+./test/extendible_hash_table_test
+./test/lru_k_replacer_test
+./test/buffer_pool_manager_instance_test
+
+如果通过了测试，将会显示如下的通过测试截图
+
+提交
+zip project1-submission.zip \
+src/include/container/hash/extendible_hash_table.h \
+src/container/hash/extendible_hash_table.cpp \
+src/include/buffer/lru_k_replacer.h \
+src/buffer/lru_k_replacer.cpp \
+src/include/buffer/buffer_pool_manager_instance.h \
+src/buffer/buffer_pool_manager_instance.cpp
+或者
+make submit-p1
+注意事项：
+1. 多个线程将同时访问内部数据结构，因此您需要确保它们的关键部分受到锁存器(latches)的保护（这些在操作
+系统中被称为“锁”）。
+2. 您可以使⽤任何内置的C++17容器除⾮另有规定。这取决于你决定你想使⽤哪⼀个。请注意，这些容器不是线
+程安全的，您需要在实现中包含锁存器来保护它们。
+3. 因为代码框架内部注释良好，建议写代码的时候关闭Copilot进⾏写作。
