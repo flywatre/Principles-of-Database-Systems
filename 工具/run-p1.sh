@@ -49,18 +49,24 @@ if ! cmake --build . --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-$(nproc)}" --targ
 fi
 printf '   %sOK%s  耗时 %s 秒\n\n' "$G" "$D" "$(( $(date +%s) - start ))"
 
+# 临时数据库留在 Linux 文件系统，避免在 Windows 挂载目录频繁读写。
+TEST_DIR=$(mktemp -d /tmp/bustub-p1.XXXXXXXX) || exit 1
+trap 'rm -r -- "$TEST_DIR"' EXIT
+cd "$TEST_DIR" || exit 1
+
 printf '%s\n' "${B}==> 运行${D}"
 tp=0; tf=0
 failed_suites=0
 printf '  %-38s %6s %6s  %s\n' "测试" "通过" "失败" "备注"
 printf '  %s\n' "------------------------------------------------------------------------"
 for t in $TARGETS; do
-  if [ ! -x "./test/$t" ]; then
+  test_binary=$BUILD/test/$t
+  if [ ! -x "$test_binary" ]; then
     printf '  %-38s %6s %6s  %s\n' "$t" "-" "-" "未构建"
     failed_suites=$((failed_suites+1))
     continue
   fi
-  out=$(timeout 300 "./test/$t" --gtest_color=no 2>&1)
+  out=$(timeout 300 "$test_binary" --gtest_color=no 2>&1)
   code=$?
   p=$(echo "$out" | grep -oE '\[  PASSED  \] [0-9]+' | tail -1 | grep -oE '[0-9]+'); p=${p:-0}
   f=$(echo "$out" | grep -oE '\[  FAILED  \] [0-9]+' | tail -1 | grep -oE '[0-9]+'); f=${f:-0}
