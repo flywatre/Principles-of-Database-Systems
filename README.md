@@ -99,7 +99,9 @@ make lru_k_replacer_test extendible_hash_table_test buffer_pool_manager_instance
 ./test/extendible_hash_table_test --gtest_filter='*InsertSplit*'
 ```
 
-Windows 下可以双击 `运行实验.cmd`（需要事先配好 WSL 环境，见 `文档/Bustub实验环境配置指南.md`）。
+Windows 下把工具链装到默认 WSL 发行版后，双击仓库里的 `运行实验.cmd`。可用 `wsl -l -v` 查看默认发行版（带 `*` 的一项）。工具链安装见 [实验环境配置指南](文档/Bustub实验环境配置指南.md)。
+
+也可以在 Linux 或 WSL 的仓库根目录运行 `bash 工具/run-p1.sh`。脚本首次运行时会配置 `bustub/build`，然后编译并运行三个 P1 测试套件。编译日志位于 `bustub/build/p1_build.log`。
 
 ## 开发环境
 
