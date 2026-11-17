@@ -23,6 +23,7 @@ cd "$BUILD" || exit 1
 if [ ! -f CMakeCache.txt ]; then
   printf '%s\n' "${B}==> 配置 Debug 构建${D}"
   if ! cmake -S "$REPO" -B "$BUILD" -DCMAKE_BUILD_TYPE=Debug >> "$BUILD_LOG" 2>&1; then
+    rm -f -- CMakeCache.txt  # 下次运行时重新配置
     tail -40 "$BUILD_LOG"
     printf '配置失败，完整日志见 %s\n' "$BUILD_LOG"
     exit 1
