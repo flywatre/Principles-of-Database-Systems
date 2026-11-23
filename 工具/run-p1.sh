@@ -9,6 +9,28 @@ REPO=/root/bustub
 BUILD=$REPO/build
 TARGETS="lru_k_replacer_test extendible_hash_table_test buffer_pool_manager_instance_test"
 
+# 按"显示宽度"对齐：中文占 2 列、ASCII 占 1 列。
+# 直接用 %-38s 会按字符数补齐，中文列会错位。
+dispwidth() {
+  local s="$1" b c
+  b=$(printf '%s' "$s" | wc -c)
+  c=$(printf '%s' "$s" | wc -m)
+  echo $(( (b + c) / 2 ))
+}
+# 左对齐填充，结果放进全局变量 PADDED（命令替换会吞掉行尾空格）
+padL() {
+  local s="$1" w="$2" d p
+  d=$(dispwidth "$s"); p=$(( w - d )); [ "$p" -lt 0 ] && p=0
+  printf -v PADDED '%s%*s' "$s" "$p" ''
+}
+# 右对齐填充
+padR() {
+  local s="$1" w="$2" d p
+  d=$(dispwidth "$s"); p=$(( w - d )); [ "$p" -lt 0 ] && p=0
+  printf -v PADDED '%*s%s' "$p" '' "$s"
+}
+
+
 if [ -t 1 ] || [ "${1:-}" = "--color" ]; then
   G=$'\033[32m'; R=$'\033[31m'; Y=$'\033[33m'; B=$'\033[36m'; D=$'\033[0m'; BOLD=$'\033[1m'
 else
@@ -39,11 +61,12 @@ printf '   %sOK%s  耗时 %s 秒\n\n' "$G" "$D" "$(( $(date +%s) - start ))"
 
 printf '%s\n' "${B}==> 运行${D}"
 tp=0; tf=0
-printf '  %-38s %6s %6s  %s\n' "测试" "通过" "失败" "备注"
+padL "测试" 36; name="$PADDED"; padR "通过" 5; passh="$PADDED"; padR "失败" 5; failh="$PADDED"
+printf '  %s %s %s  %s\n' "$name" "$passh" "$failh" "备注"
 printf '  %s\n' "------------------------------------------------------------------------"
 for t in $TARGETS; do
   if [ ! -x "./test/$t" ]; then
-    printf '  %-38s %6s %6s  %s\n' "$t" "-" "-" "未构建"
+    padL "$t" 36; printf '  %s %5s %5s  %s\n' "$PADDED" "-" "-" "未构建"
     continue
   fi
   out=$(timeout 300 "./test/$t" 2>&1)
@@ -62,10 +85,10 @@ for t in $TARGETS; do
   elif [ "$f" -eq 0 ] && [ "$p" -gt 0 ]; then
     note="${G}通过${D}"
   fi
-  printf '  %-38s %6s %6s  %s\n' "$t" "$p" "$f" "$note"
+  padL "$t" 36; printf '  %s %5s %5s  %s\n' "$PADDED" "$p" "$f" "$note"
 done
 printf '  %s\n' "------------------------------------------------------------------------"
-printf '  %-38s %6s %6s\n' "合计" "$tp" "$tf"
+padL "合计" 36; printf '  %s %5s %5s\n' "$PADDED" "$tp" "$tf"
 echo
 
 if [ "$tf" -eq 0 ] && [ "$tp" -gt 0 ]; then

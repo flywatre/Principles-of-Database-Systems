@@ -18,6 +18,20 @@ CMU 15-445 BusTub **Project 1** 的完整实现与文档。项目实现了一个
 | `make check-clang-tidy-p1` | ✅ 通过 |
 | AddressSanitizer（Debug 全程开启） | ✅ 无越界、无泄漏 |
 
+## 运行截图
+
+**一键编译并运行全部测试**
+
+![一键运行结果](experiment%201/截图/01-一键运行结果.png)
+
+**单元测试逐个用例通过（含并发用例）**
+
+![编译与单元测试](experiment%201/截图/02-编译与单元测试.png)
+
+**gdb 断点调试：在 `RecordAccess` 处停下，查看调用栈与成员变量**
+
+![gdb 调试会话](experiment%201/截图/03-gdb调试会话.png)
+
 ## 目录结构
 
 ```
