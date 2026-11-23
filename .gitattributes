@@ -1,0 +1,9 @@
+# 统一换行符：脚本必须是 LF，否则在 Linux 下 shebang 带 \r 会直接报错
+*.sh   text eol=lf
+*.py   text eol=lf
+*.md   text eol=lf
+*.cmd  text eol=crlf
+# 二进制文件不做任何转换
+*.png  binary
+*.pdf  binary
+*.zip  binary
